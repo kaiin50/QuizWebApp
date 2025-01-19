@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mock Exam App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .question-container, .explanation-container, .history-container {
+      display: none;
+    }
+    .timer {
+      font-size: 20px;
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="question-container">
+      <p id="timer" class="timer">Time: 30s</p>
+      <p id="question-number"></p>
+      <p id="question-text"></p>
+      <form id="options-form"></form>
+      <button id="submit-answer">回答</button>
+    </div>
+
+    <div class="explanation-container">
+      <h2 id="result"></h2>
+      <p id="explanation"></p>
+      <button id="next-question">OK</button>
+    </div>
+
+    <div class="history-container">
+      <h2>スコア履歴</h2>
+      <ul id="score-history"></ul>
+      <button id="close-history">閉じる</button>
+    </div>
+
+    <button id="view-history">履歴表示</button>
+  </div>
+
+  <script>
+    const questionsUrl = 'questions.json';
+    const app = document.getElementById('app');
+    const questionContainer = document.querySelector('.question-container');
+    const explanationContainer = document.querySelector('.explanation-container');
+    const historyContainer = document.querySelector('.history-container');
+    const timerElement = document.getElementById('timer');
+    const questionNumberElement = document.getElementById('question-number');
+    const questionTextElement = document.getElementById('question-text');
+    const optionsForm = document.getElementById('options-form');
+    const resultElement = document.getElementById('result');
+    const explanationElement = document.getElementById('explanation');
+    const scoreHistoryElement = document.getElementById('score-history');
+
+    let questions = [];
+    let currentQuestionIndex = 0;
+    let correctAnswers = 0;
+    let timer = 30;
+    let timerInterval;
+    const scoreHistory = [];
+
+    function fetchQuestions() {
+      fetch(questionsUrl)
+        .then(response => response.json())
+        .then(data => {
+          questions = data;
+          showQuestion();
+        })
+        .catch(err => console.error('Failed to fetch questions:', err));
+    }
+
+    function showQuestion() {
+      clearInterval(timerInterval);
+      timer = 30;
+      timerElement.textContent = `Time: ${timer}s`;
+
+      if (currentQuestionIndex >= questions.length) {
+        const finalScore = `${correctAnswers} / ${questions.length} (${Math.round((correctAnswers / questions.length) * 100)}%)`;
+        scoreHistory.push(finalScore);
+        alert(`テスト終了！正解数: ${finalScore}`);
+        currentQuestionIndex = 0;
+        correctAnswers = 0;
+      }
+
+      const question = questions[currentQuestionIndex];
+      questionNumberElement.textContent = `問題番号: ${question.QuestionNumber}`;
+      questionTextElement.textContent = question.QuestionText;
+
+      optionsForm.innerHTML = '';
+      question.Options.forEach((option, index) => {
+        const optionElement = document.createElement('div');
+        optionElement.innerHTML = `
+          <input type="radio" id="option-${index}" name="option" value="${index + 1}" required>
+          <label for="option-${index}">${option}</label>
+        `;
+        optionsForm.appendChild(optionElement);
+      });
+
+      questionContainer.style.display = 'block';
+      explanationContainer.style.display = 'none';
+
+      timerInterval = setInterval(() => {
+        timer--;
+        timerElement.textContent = `Time: ${timer}s`;
+        if (timer === 0) {
+          clearInterval(timerInterval);
+          alert('タイムアウト！次の問題に進みます。');
+          nextQuestion();
+        }
+      }, 1000);
+    }
+
+    function checkAnswer(selectedAnswer) {
+      const question = questions[currentQuestionIndex];
+      const isCorrect = selectedAnswer === question.Answer;
+
+      if (isCorrect) correctAnswers++;
+
+      resultElement.textContent = isCorrect ? '正解！' : '不正解！';
+      explanationElement.textContent = question.Explanation;
+      questionContainer.style.display = 'none';
+      explanationContainer.style.display = 'block';
+    }
+
+    function nextQuestion() {
+      currentQuestionIndex++;
+      showQuestion();
+    }
+
+    function showHistory() {
+      scoreHistoryElement.innerHTML = '';
+      scoreHistory.forEach((score, index) => {
+        const historyItem = document.createElement('li');
+        historyItem.textContent = `試行 ${index + 1}: ${score}`;
+        scoreHistoryElement.appendChild(historyItem);
+      });
+
+      historyContainer.style.display = 'block';
+    }
+
+    function hideHistory() {
+      historyContainer.style.display = 'none';
+    }
+
+    document.getElementById('submit-answer').addEventListener('click', () => {
+      const selectedOption = document.querySelector('input[name="option"]:checked');
+      if (!selectedOption) {
+        alert('選択肢を選んでください。');
+        return;
+      }
+
+      clearInterval(timerInterval);
+      checkAnswer(selectedOption.value);
+    });
+
+    document.getElementById('next-question').addEventListener('click', nextQuestion);
+
+    document.getElementById('view-history').addEventListener('click', showHistory);
+
+    document.getElementById('close-history').addEventListener('click', hideHistory);
+
+    fetchQuestions();
+  </script>
+</body>
+</html>
